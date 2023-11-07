@@ -1,0 +1,90 @@
+#include <TinyGPS++.h>
+#include <SoftwareSerial.h>
+//#include<HardwareSerial.h>
+
+SoftwareSerial gsmSerial(7,8);
+TinyGPSPlus gps;
+bool coordinatesReceived = false;
+ float latitude ;
+float longitude;
+void setup() {
+  Serial.begin(9600);
+  gsmSerial.begin(9600);
+
+  Serial.println("AT+CMGF=1"); // Set SMS text mode
+  gsmSerial.println("AT+CMGF=1"); // Set SMS text mode
+  delay(1000);
+  gsmSerial.println("AT+CNMI=2,2,0,0,0");  // Start serial communication with the GPS module
+}
+
+void loop() {
+  // Check if there's data available from the GPS module
+  while (Serial.available() > 0) {
+    // Read the incoming data one character at a time
+    char c = Serial.read();
+
+    // Pass the character to the TinyGPS++ object for parsing
+    gps.encode(c);
+  }
+
+  // Check if new data is available
+  if (gps.location.isUpdated() && !coordinatesReceived) {
+    // Extract latitude and longitude
+     latitude = gps.location.lat();
+     longitude = gps.location.lng();
+
+    // Print latitude and longitude to the Serial Monitor
+    Serial.print("Latitude: ");
+    Serial.println(latitude, 6);  // Display 6 decimal places
+    Serial.print("Longitude: ");
+    Serial.println(longitude, 6); // Display 6 decimal places
+
+    // Set the flag to indicate that coordinates have been received
+    coordinatesReceived = true;
+  }
+
+  // If coordinates have been received, you can stop the loop
+   while (gsmSerial.available() > 0) {
+    String line = gsmSerial.readStringUntil('\n');
+
+    if (line.indexOf("+91") != -1) {
+      int ind = line.indexOf("+91");
+      String numb = line.substring(ind, ind + 13);
+      Serial.println("Sender number is " + numb);
+
+      String message = gsmSerial.readStringUntil('\n');
+      Serial.println("Message is: " + message);
+
+      gsmSerial.print("AT+CMGS=\"");
+      gsmSerial.print(numb);
+      gsmSerial.print("\"\r");
+      delay(1000);
+      if (message.indexOf("location") != -1) {
+     
+     
+     if(coordinatesReceived){
+     gsmSerial.println("Welcome "+numb);
+    gsmSerial.print("Latitude: ");
+    gsmSerial.println(latitude, 6);  // Display 6 decimal places
+    gsmSerial.print("Longitude: ");
+    gsmSerial.println(longitude, 6);
+    gsmSerial.print("https://www.google.com/maps?q=");
+     gsmSerial.print(latitude, 6);
+       gsmSerial.print(",");
+       gsmSerial.print(longitude, 6);
+       gsmSerial.print("&label=YourLabel");   
+    } 
+    else
+    {  gsmSerial.println("Welcome "+numb);
+       gsmSerial.println("gps is not connected to  Satellite");}  
+      } 
+      else {
+        gsmSerial.print("plase type location to know location");}
+      gsmSerial.write(26); // ASCII code for Ctrl+Z to send the SMS
+      delay(1000);
+  }
+  
+}
+  }
+
+
